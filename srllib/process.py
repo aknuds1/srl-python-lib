@@ -1,26 +1,32 @@
-""" Functionality for managing child processes. """
-# Don't import signal from this package
-from __future__ import absolute_import
-import os.path, struct, cPickle, sys, signal, traceback, subprocess, errno, \
-    stat, time
+"""Functionality for managing child processes."""
+import os.path
+import struct
+import sys
+from . import signal
+import traceback
+import subprocess
+import errno
+import time
 
+import pickle
 from srllib import threading, util
 from srllib._common import *
 from srllib.error import BusyError, SrlError
 from srllib.signal import Signal
-         
+
+
 class ChildError(SrlError):
     """ Exception detected in child process.
-    
+
     If the original exception derives from L{PickleableException}, it is
     preserved, along with the traceback.
     @ivar orig_exception: The original exception, possibly C{None}.
     @ivar orig_traceback: Traceback of original exception, possibly C{None}.
     """
     def __init__(self, process_error):
-        SrlError.__init__(self, "Error in child process")    
+        super(ChildError, self).__init__(self, "Error in child process")
         if process_error.exc_class is not None:
-            assert process_error.exc_message is not None 
+            assert process_error.exc_message is not None
             assert process_error.exc_traceback is not None
             assert process_error.exc_arguments is not None
             self.orig_exception = process_error.exc_class(
@@ -28,15 +34,17 @@ class ChildError(SrlError):
         else:
             self.orig_exception = None
         self.orig_traceback = process_error.exc_traceback
-                    
+
+
 class PickleableException(SrlError):
     def __init__(self, msg, *args):
-        SrlError.__init__(self, msg)
+        super(PickleableException, self).__init__(self, msg)
         self.arguments = (msg,) + args
 
-class _ProcessError(object):
-    """ Encapsulation of a child process error.
-    
+
+class _ProcessError:
+    """Encapsulation of a child process error.
+
     Exceptions don't pickle in the standard fashion, so we do it like this.
     @ivar message: Error message.
     @ivar exc_message: Original exception message.
@@ -46,8 +54,8 @@ class _ProcessError(object):
     """
     def __init__(self, msg, original_exc=None, original_tb=None):
         self.message = msg
-        
-        if original_exc is not None:            
+
+        if original_exc is not None:
             self.exc_message = str(original_exc)
         else:
             self.exc_message = None
@@ -61,14 +69,16 @@ class _ProcessError(object):
             self.exc_traceback = traceback.format_tb(original_tb)
         else:
             self.exc_traceback = None
-            
+
+
 class PickleError(SrlError):
     pass
 
-class _MthdProxy(object):
+
+class _MthdProxy:
     def __init__(self, mthd):
-        self.__obj, self.__cls, self.__name = (mthd.im_self, mthd.im_class,
-            mthd.im_func.func_name)
+        self.__obj, self.__cls, self.__name = (
+            mthd.__self__, mthd.__self__.__class__, mthd.__func__.__name__)
 
     def __call__(self, *args, **kwds):
         name = self.__name
@@ -78,20 +88,22 @@ class _MthdProxy(object):
         func = getattr(self.__cls, name)
         func(self.__obj, *args, **kwds)
 
+
 class ChildDied(SrlError):
-    """ Child died unexpectedly.
+    """Child died unexpectedly.
     @ivar exitcode: Child's exit code.
     @ivar stderr: Child's stderr.
     """
     def __init__(self, exitcode, stderr):
-        SrlError.__init__(self, "Child died unexpectedly (exit code %d)" %
-                          exitcode)
+        super(ChildDied, self).__init__(
+            self, "Child died unexpectedly (exit code %d)" % exitcode)
         self.exitcode, self.stderrr = exitcode, stderr
-        
+
+
 def terminate(process):
     """ Terminate a process of either the L{Process} type or the standard
     subprocess.Popen type.
-    
+
     This method will block until it is determined that the process has in fact
     terminated.
     @note: On Windows, pywin32 is required.
@@ -101,7 +113,8 @@ def terminate(process):
     if r is not None:
         return r
     if get_os_name() == Os_Windows:
-        import win32process, win32api
+        import win32process
+        import win32api
         # Emulate POSIX behaviour, where the exit code will be the negative
         # value of the signal that terminated the process
         # Open with rights to terminate and synchronize
@@ -111,7 +124,7 @@ def terminate(process):
         try:
             os.kill(process.pid, signal.SIGTERM)
             time.sleep(.05)
-        except OSError, err:
+        except OSError as err:
             if err.errno == errno.ECHILD:
                 # Presumably, the child is dead already?
                 pass
@@ -121,71 +134,80 @@ def terminate(process):
             os.kill(process.pid, signal.SIGKILL)
 
     return process.wait()
-    
+
+
 class Process(object):
     """ Invoke a callable in a child process.
 
-    Instantiating an object of this class will spawn a child process, I{in which a
-    provided callable is invoked}. Pipes are provided for the standard streams
+    Instantiating an object of this class will spawn a child process, I{in which
+    a provided callable is invoked}. Pipes are provided for the standard streams
     and a separate pipe for communication between parent and child. stdout and
     stderr are made non-blocking so they can easily be drained of data.
     @ivar stdout: Child's stdout file.
     @ivar stderr: Child's stderr file..
     """
-    def __init__(self, child_func, child_args=[], child_kwds={}):
+    def __init__(self, child_func, child_args=None, child_kwds=None):
         """
         @param child_func: Function to be called in child process.
         @param child_args: Optional arguments for the child function.
         @param child_kwds: Optional keywords for the child function.
         @raise ChildDied: Child died unexpectedly.
         """
+        if not child_kwds:
+            child_kwds = {}
+        if not child_args:
+            child_args = []
         self.__exit_rslt = None
         # We execute in the child a script which first unpickles the function
         # and its parameters, and then invokes it. This is the best cross-
         # platform approach that we've found (since Windows does not support
         # fork)
-        script_fname = self.__script_fname = util.create_tempfile(content=
-r"""import cPickle, sys, struct
+        script_fname = self.__script_fname = util.create_tempfile(content=r"""\
+import pickle, sys, struct
 pipe_path = sys.argv[1]
 lnth = struct.unpack("@I", sys.stdin.read(4))[0]
-sys.path = cPickle.loads(sys.stdin.read(lnth))
+sys.path = pickle.loads(sys.stdin.read(lnth))
 lnth = struct.unpack("@I", sys.stdin.read(4))[0]
-func, args, kwds = cPickle.loads(sys.stdin.read(lnth))
+func, args, kwds = pickle.loads(sys.stdin.read(lnth))
 try: func(*args, **kwds)
 except Exception, err:
     from srllib.process import _ProcessError
-    pickle = cPickle.dumps(_ProcessError("Error in child", err, sys.exc_info()[2]))
+    pickle = pickle.dumps(_ProcessError("Error in child", err, sys.exc_info()[2]))
     f = file(pipe_path, "wb")
     try: f.write(pickle)
     finally: f.close()
 """)
-        
+
         # XXX: Some day we might want to use a real (named) pipe ...
         pipe_path = self.__errpipe_path = util.create_tempfile()
-        prcs = self.__prcs = subprocess.Popen(["python", script_fname, pipe_path],
-                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, universal_newlines=
-                                    True, bufsize=-1)
-        
+        prcs = self.__prcs = subprocess.Popen(
+            ["python", script_fname, pipe_path],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, universal_newlines=
+            True, bufsize=-1)
+
         import types
         if isinstance(child_func, types.MethodType):
             # Can't pickle instance methods
             child_func = _MthdProxy(child_func)
         # Pickle the path, to ensure proper unpickling
-        path_data = cPickle.dumps(sys.path)
-        try: func_data = cPickle.dumps((child_func, child_args, child_kwds))
-        except TypeError, err:
-            print err
-            raise PickleError("Failed to pickle %r, is this e.g. a nested definition?" % \
-                    child_func)
+        path_data = pickle.dumps(sys.path)
+        try:
+            func_data = pickle.dumps((child_func, child_args, child_kwds))
+        except TypeError as err:
+            print(err)
+            raise PickleError(
+                "Failed to pickle %r, is this e.g. a nested definition?" %
+                child_func)
         try:
             prcs.stdin.write(struct.pack("@I", len(path_data)))
             prcs.stdin.write(path_data)
             prcs.stdin.write(struct.pack("@I", len(func_data)))
             prcs.stdin.write(func_data)
-            # Important: Flush what we've written so child isn't stuck waiting for data
+            # Important: Flush what we've written so child isn't stuck waiting
+            # for data
             prcs.stdin.flush()
-        except EnvironmentError, err:
+        except EnvironmentError as err:
             if err.errno == errno.EPIPE:
                 exitcode = self.wait()
                 raise ChildDied(exitcode, prcs.stderr.read())
@@ -199,11 +221,11 @@ except Exception, err:
     @property
     def pid(self):
         return self._pid
-    
+
     @property
     def stdout(self):
         return self.__prcs.stdout
-    
+
     @property
     def stderr(self):
         return self.__prcs.stderr
@@ -217,7 +239,7 @@ except Exception, err:
             self.wait()
         os.remove(self.__errpipe_path)
         os.remove(self.__script_fname)
-            
+
     def poll(self):
         """ Check if child has exited.
         @return: If child has exited, its exit code, else C{None}.
@@ -225,17 +247,19 @@ except Exception, err:
         rslt = self.__exit_rslt
         if rslt is not None:
             if isinstance(rslt, ChildError):
-                raise rslt 
+                raise rslt
             assert isinstance(rslt, int)
             return rslt
         r = self.__prcs.poll()
         f = file(self.__errpipe_path, "rb")
-        try: data = f.read()
-        finally: f.close()
+        try:
+            data = f.read()
+        finally:
+            f.close()
         if data:
             # Exception from child process
-            err = cPickle.loads(data)
-            self.__exit_rslt = ChildError(err)            
+            err = pickle.loads(data)
+            self.__exit_rslt = ChildError(err)
             raise self.__exit_rslt
         return r
 
@@ -249,21 +273,21 @@ except Exception, err:
 
     def terminate(self):
         """ Kill child process.
-        
+
         Implemented using L{terminate}.
         """
         return terminate(self)
 
     def write_message(self, message, wait=True):
         """ Write message to other process.
-        
+
         If this is the child process, message will be available for parent
         process and vice versa. This method may wait for the other process to
         "pick up the phone". A broken connection will result in EofError.
         @param message: An arbitrary object.
         @param wait: Wait for acknowledgement.
         """
-        msg = cPickle.dumps(message)
+        msg = pickle.dumps(message)
         self.pipe_out.write(struct.pack("i", len(msg)))
         self.pipe_out.write(msg)
         if not wait:
@@ -275,7 +299,7 @@ except Exception, err:
 
     def read_message(self):
         """ Read message from other process.
-        
+
         If this is the child process, message will be read from parent process
         and vice versa. This method will wait until a message is actually
         received.
@@ -283,21 +307,23 @@ except Exception, err:
         @raise EofError: Broken connection.
         """
         def read_data(lnth):
-            data = self.pipe_in.read(lnth)
-            if len(data) < lnth:
+            data_ = self.pipe_in.read(lnth)
+            if len(data_) < lnth:
                 raise EofError
-            return data
-        
+            return data_
+
         data = read_data(struct.calcsize("i"))
         msgLnth = struct.unpack("i", data)[0]
         data = read_data(msgLnth)
 
         # Ack
-        try: self.pipe_out.write('a')
-        except IOError: pass
+        try:
+            self.pipe_out.write('a')
+        except IOError:
+            pass
 
-        import cPickle
-        obj = cPickle.loads(data)
+        import pickle
+        obj = pickle.loads(data)
         return obj
 
     def _poll(self, wait=False):
@@ -308,14 +334,16 @@ except Exception, err:
             flag = 0
         else:
             flag = os.WNOHANG
+        pid = status = None
         while True:
-            try: pid, status = os.waitpid(self._pid, flag)
-            except OSError, err:
+            try:
+                pid, status = os.waitpid(self._pid, flag)
+            except OSError as err:
                 # Ignore interrupts
-                if err.errno == errno.EINTR:
-                    continue
-                raise
-            break
+                if err.errno != errno.EINTR:
+                    raise
+            else:
+                break
 
         if pid != self._pid:
             return None
@@ -326,7 +354,8 @@ except Exception, err:
             self._childRet = os.WEXITSTATUS(status)
 
         if self._childRet != 0:
-            try: obj = self.read_message()
+            try:
+                obj = self.read_message()
             except EofError:
                 pass
             else:
@@ -338,13 +367,15 @@ except Exception, err:
 class EofError(IOError):
     pass
 
+
 class ThreadedProcessMonitor(object):
     """ Monitor a child process in a background thread.
     @group Signals: sig*
     @ivar process: The L{child process<Process>}
     @ivar sig_stdout: Triggered to deliver stdout output from the child process.
-    @ivar sig_stderr: Triggered to deliver stderr output from the child process-
-    @ivar sig_finished: Signal that monitor has finished, from background thread.
+    @ivar sig_stderr: Triggered to deliver stderr output from the child process.
+    @ivar sig_finished: Signal that monitor has finished, from background
+    thread.
     Parameters: None.
     @ivar sig_failed: Signal that monitored process failed, from background
     thread. Paramaters: The caught exception.
@@ -357,11 +388,11 @@ class ThreadedProcessMonitor(object):
         should the L{Process} object be passed as a parameter?
         """
         self.sig_stdout, self.sig_stderr, self.sig_finished, self.sig_failed = (
-                Signal(), Signal(), Signal(), Signal())
+            Signal(), Signal(), Signal(), Signal())
         self.__process = None
         i, o = os.pipe()
-        self._event_pipe_in, self._event_pipe_out = (os.fdopen(i, "r", 0),
-            os.fdopen(o, "w", 0))
+        self._event_pipe_in, self._event_pipe_out = (
+            os.fdopen(i, "r", 0), os.fdopen(o, "w", 0))
         self._daemon = daemon
         self._thrd = None
 
@@ -370,22 +401,26 @@ class ThreadedProcessMonitor(object):
         """ The monitored process. """
         return self.__process
 
-    def __call__(self, child_func, child_args=[], child_kwds={}):
+    def __call__(self, child_func, child_args=None, child_kwds=None):
         """ Execute function in child process, monitored in background thread.
         @param child_func: Function to execute
         @param child_args: Arguments for child function
         @param child_kwds: Keywords for child function
         @raise BusyError: Already busy with a child process.
         """
+        if not child_kwds:
+            child_kwds = {}
+        if not child_args:
+            child_args = []
         if self.__process is not None:
             raise BusyError("Another process is already being monitored")
         self.__exit_code = None
-        self.__process = Process(child_func, child_args=child_args, child_kwds=
-            child_kwds)
-        thrd = self._thrd = threading.Thread(target=self._thrdfunc, daemon=
-            self._daemon)
+        self.__process = Process(
+            child_func, child_args=child_args, child_kwds=child_kwds)
+        thrd = self._thrd = threading.Thread(
+            target=self._thrdfunc, daemon=self._daemon)
         thrd.start()
-        
+
     def monitor_command(self, arguments, cwd=None, env=None):
         """ Monitor a command.
 
@@ -393,19 +428,19 @@ class ThreadedProcessMonitor(object):
         """
         if self.__process is not None:
             raise BusyError("Another process is already being monitored")
-        prcs = self.__process = subprocess.Popen(arguments, cwd=cwd, env=env,
-                                          stdout=subprocess.PIPE, stderr=
-                                          subprocess.PIPE)
-        thrd = self._thrd = threading.Thread(target=self._thrdfunc, daemon=
-            self._daemon)
+        prcs = self.__process = subprocess.Popen(
+            arguments, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=
+            subprocess.PIPE)
+        thrd = self._thrd = threading.Thread(
+            target=self._thrdfunc, daemon=self._daemon)
         thrd.start()
 
         return prcs
 
     def wait(self):
         """ Wait for monitoring thread to finish.
-        @return: The child process exit code. If the child raised a L{ChildError},
-        this will be None.
+        @return: The child process exit code. If the child raised a
+        L{ChildError}, this will be None.
         """
         if self._thrd is not None:
             self._thrd.join()
@@ -414,8 +449,9 @@ class ThreadedProcessMonitor(object):
 
     def _thrdfunc(self):
         prcs = self.__process
-        try: self.__exit_code = prcs.wait()
-        except ChildError, err:
+        try:
+            self.__exit_code = prcs.wait()
+        except ChildError as err:
             self.sig_failed(err)
         else:
             self.sig_finished()

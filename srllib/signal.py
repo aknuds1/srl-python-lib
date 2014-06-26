@@ -1,7 +1,7 @@
 """ Signals/slots functionality. """
 import types, weakref
 
-from error import *
+from .error import *
 
 class _DeadReference(SrlError):
     pass
@@ -33,12 +33,12 @@ class CallFailure(SrlError):
 
 class _MethodProxy(object):
     def __init__(self, mthd):
-        self._instanceRef, self._mthdRef = weakref.ref(mthd.im_self), weakref.ref(mthd.im_func)
+        self._instanceRef, self._mthdRef = weakref.ref(mthd.__self__), weakref.ref(mthd.__func__)
 
     def __call__(self, *args, **kwds):
         instance, mthd = self._get_refs()
         try: mthd(instance, *args, **kwds)
-        except TypeError, err:
+        except TypeError as err:
             if not sys.exc_info()[-1].tb_next:
                 # The exception happened in this frame
                 raise CallFailure("Calling slot %s.%s resulted in TypeError, check \
@@ -53,7 +53,7 @@ your arguments; the original exception was: `%s'" %
         if type(rhs) != types.MethodType:
             return False
         instance, mthd = self._get_refs()
-        return instance == rhs.im_self and mthd == rhs.im_func
+        return instance == rhs.__self__ and mthd == rhs.__func__
 
     @property
     def object(self):

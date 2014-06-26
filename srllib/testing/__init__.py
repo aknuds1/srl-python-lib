@@ -1,12 +1,18 @@
 """ Unit testing functionality. """
-import unittest, os.path, sys, shutil, tempfile
+import unittest
+import os.path
+import sys
+import shutil
+import tempfile
 import warnings
 
 import srllib.util
-from mock import Mock
+from .mock import Mock
 
-# This flag makes unittest omit our test methods in failure tracebacks, like the standard test methods.
+# This flag makes unittest omit our test methods in failure tracebacks, like the standard test
+#  methods.
 __unittest = True
+
 
 class TestCase(unittest.TestCase):
     """ Extended TestCase baseclass.
@@ -21,8 +27,6 @@ class TestCase(unittest.TestCase):
         unittest.TestCase.__init__(self, *args, **kwds)
 
     def setUp(self):
-        # from conduit import mythreading
-        # mythreading.registerExceptionHandler(self._exception_handler)
         (self.__connections, self._orig_attrs, self._tempfiles,
             self._tempdirs) = [], {}, [], []
                 
@@ -34,7 +38,7 @@ class TestCase(unittest.TestCase):
         if self.__cwd is not None:
             os.chdir(self.__cwd)
             
-        for k, v in self._orig_attrs.items():
+        for k, v in list(self._orig_attrs.items()):
             obj, attr = k
             val = v
             setattr(obj, attr, val)
@@ -57,7 +61,7 @@ class TestCase(unittest.TestCase):
         Mock.mockInstances.clear()
 
     def assertNot(self, val, msg=None):
-        self.assert_(not val, msg=msg)
+        self.assertTrue(not val, msg=msg)
         
     def assertStrEqual(self, lhs, rhs, msg=None):
         self.assertEqual(str(lhs), str(rhs), msg)
@@ -78,39 +82,39 @@ class TestCase(unittest.TestCase):
         if not isinstance(rhs, tuple):
             rhs = tuple(rhs)
         if not lhs == rhs:
-            raise self.failureException, msg or "%r != %r" % (lhs, rhs)
+            raise self.failureException(msg or "%r != %r" % (lhs, rhs))
 
     def assertIs(self, lhs, rhs, msg=None):
         if not lhs is rhs:
-            raise self.failureException, msg or "%r is not %r" % (lhs, rhs)
+            raise self.failureException(msg or "%r is not %r" % (lhs, rhs))
 
     def assertIsNot(self, lhs, rhs, msg=None):
         if lhs is rhs:
-            raise self.failureException, msg or "%r is %r" % (lhs, rhs)
+            raise self.failureException(msg or "%r is %r" % (lhs, rhs))
 
     def assertIn(self, val, seq, msg=None):
         if not val in seq:
-            raise self.failureException, msg or "%r not in %r" % (val, seq)
+            raise self.failureException(msg or "%r not in %r" % (val, seq))
 
     def assertNotIn(self, val, seq, msg=None):
         if val in seq:
-            raise self.failureException, msg or "%r in %r" % (val, seq)
+            raise self.failureException(msg or "%r in %r" % (val, seq))
 
     def assertGreaterThan(self, lhs, rhs, msg=None):
         if lhs <= rhs:
-            raise self.failureException, msg or "%r <= %r" % (lhs, rhs)
+            raise self.failureException(msg or "%r <= %r" % (lhs, rhs))
 
     def assertLessThan(self, lhs, rhs, msg=None):
         if lhs >= rhs:
-            raise self.failureException, msg or "%r >= %r" % (lhs, rhs)
+            raise self.failureException(msg or "%r >= %r" % (lhs, rhs))
 
     def assertGreaterOrEqual(self, lhs, rhs, msg=None):
         if lhs < rhs:
-            raise self.failureException, msg or "%r < %r" % (lhs, rhs)
+            raise self.failureException(msg or "%r < %r" % (lhs, rhs))
 
     def assertLessOrEqual(self, lhs, rhs, msg=None):
         if lhs > rhs:
-            raise self.failureException, msg or "%r > %r" % (lhs, rhs)
+            raise self.failureException(msg or "%r > %r" % (lhs, rhs))
 
     def _connect_to(self, signal, slot):
         signal.connect(slot)
@@ -136,7 +140,7 @@ class TestCase(unittest.TestCase):
         @param attr: Name of attribute to change
         @param val: The intended value of the attribute
         """
-        if isinstance(mdl, basestring):
+        if isinstance(mdl, str):
             try:
                 fromList = [mdl.rsplit(".", 1)[1]]
             except IndexError:
@@ -152,7 +156,7 @@ class TestCase(unittest.TestCase):
         setattr(obj, attr, val)
 
     def _restore_module_attr(self, mdl, attr):
-        if isinstance(mdl, basestring):
+        if isinstance(mdl, str):
             try:
                 fromList = [mdl.rsplit(".", 1)[1]]
             except IndexError:
@@ -466,7 +470,7 @@ def run_tests(package_name, gui=False, test_module=None):
 
     # In order to get coverage analysis of all srllib modules, "unload" them before
     # testing
-    for mname in sys.modules.keys()[:]:
+    for mname in list(sys.modules.keys())[:]:
         if mname.split(".")[0] == "srllib":
             del sys.modules[mname]
 

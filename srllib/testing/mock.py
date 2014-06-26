@@ -62,8 +62,10 @@ import warnings
 
 import srllib.inspect
 
+
 class MockInterfaceError(Exception):
     pass
+
 
 class Mock(object):
     """ The Mock class simulates any other class for testing purposes.
@@ -129,8 +131,8 @@ class Mock(object):
                     callable)
 
             # Verify that mocked methods exist in real class
-            for retMethod in self.mockReturnValues.keys():
-                if not self.__realClassMethods.has_key(retMethod):
+            for retMethod in list(self.mockReturnValues.keys()):
+                if retMethod not in self.__realClassMethods:
                     raise MockInterfaceError("Return value supplied for method \
 '%s' that was not in the original class (%s)" % (retMethod, realClass.__name__))
 
@@ -146,7 +148,7 @@ class Mock(object):
             # Now properties
             mockprops = srllib.inspect.get_members(self.__class__,
                 inspect.isdatadescriptor)
-            for name, prop in mockprops.items():
+            for name, prop in list(mockprops.items()):
                 if name.startswith("mock"):
                     continue
                 # Ignore certain special attributes
@@ -161,7 +163,7 @@ class Mock(object):
         self.__setupSubclassMethodInterceptors()
 
         # Attributes
-        for k, v in attributes.items():
+        for k, v in list(attributes.items()):
             self.__attributes[k] = v
 
         # Record this instance among all mock instances
@@ -206,7 +208,7 @@ class Mock(object):
     def mockAccessedAttrs(self):
         """ All accessed attributes.
         """
-        return self.__methods.keys()
+        return list(self.__methods.keys())
 
     @classmethod
     def mockGetAllInstances(cls):
@@ -369,7 +371,7 @@ be to %s, but it was to %s instead" % (index, name, call.name,))
         """
         if self.__realClass is None:
             return
-        if not self.__realClassMethods.has_key(name):
+        if name not in self.__realClassMethods:
             raise MockInterfaceError("Calling mock method '%s' that was not \
 found in the original class (%s)" % (name, self.__realClass.__name__))
 
@@ -469,7 +471,7 @@ def _getNumPosSeenAndCheck(numPosCallParams, callKwParams, args, varkw):
     for arg in args[:numPosCallParams]:
         posSeen[arg] = True
     for kwp in callKwParams:
-        if posSeen.has_key(kwp):
+        if kwp in posSeen:
             raise MockInterfaceError("%s appears as both a positional and named \
 parameter." % kwp)
         if kwp in args:
@@ -509,7 +511,7 @@ class MockCall:
         elif isinstance(n, str):
             return self.kwargs[n]
         else:
-            raise IndexError, 'illegal index type for getParam'
+            raise IndexError('illegal index type for getParam')
 
     @property
     def numArgs(self):
@@ -526,7 +528,7 @@ class MockCall:
         for p in self.args:
             s = s + sep + repr(p)
             sep = ', '
-        items = self.kwargs.items()
+        items = list(self.kwargs.items())
         items.sort()
         for k,v in items:
             s = s + sep + k + '=' + repr(v)
@@ -601,7 +603,7 @@ class MockCallable:
                 # Go for the generic match
                 returnVal = self.mock.mockReturnValues.get(self.name)
             if isinstance(returnVal, ReturnValuesBase):
-                returnVal = returnVal.next()
+                returnVal = next(returnVal)
             return returnVal
 
     def checkExpectations(self, thisCall, params, kwparams):
@@ -617,7 +619,7 @@ class MockCallable:
 
 def _findFunc(cls, name):
     """ Depth first search for a method with a given name. """
-    if cls.__dict__.has_key(name):
+    if name in cls.__dict__:
         return cls.__dict__[name]
     for base in cls.__bases__:
         func = _findFunc(base, name)
@@ -627,9 +629,9 @@ def _findFunc(cls, name):
 
 
 class ReturnValuesBase:
-    def next(self):
+    def __next__(self):
         try:
-            return self.iter.next()
+            return next(self.iter)
         except StopIteration:
             raise AssertionError("No more return values")
     def __iter__(self):
@@ -745,7 +747,7 @@ def SEQ(*sequence):
     iterator = iter(sequence)
     def testFn(param):
         try:
-            cond = iterator.next()
+            cond = next(iterator)
         except StopIteration:
             raise AssertionError('SEQ exhausted')
         return cond(param)
@@ -781,9 +783,11 @@ def HASATTR(attr):
         return hasattr(param, attr)
     return testFn
 
+
 def HASMETHOD(method):
     def testFn(param):
         return hasattr(param, method) and callable(getattr(param, method))
     return testFn
+
 
 CALLABLE = callable

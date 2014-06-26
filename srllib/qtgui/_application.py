@@ -1,12 +1,12 @@
 """ Functionality on top of QApplication.
 """
-import sys, traceback, Queue
+import sys, traceback, queue
 from PyQt4.QtGui import *
 import warnings
 
 import srllib.threading
 from srllib.signal import Signal
-from _common import *
+from ._common import *
 from srllib.qtgui import _signal
 
 __all__ = ["Application", "get_app"]
@@ -51,7 +51,7 @@ class Application(QApplication):
         PyQt4.QtGui.qApp = self
         Application.the_app = self
 
-        self.__deferred_queue = Queue.Queue()
+        self.__deferred_queue = queue.Queue()
         timer = self.__timer = QTimer(self)
         QObject.connect(timer, SIGNAL("timeout()"), self.__slot_timed_out)
         timer.start(20)
@@ -112,7 +112,7 @@ class Application(QApplication):
         to_dispatch = []
         while True:
             try: mthd, args, kwds, optimize = self.__deferred_queue.get_nowait()
-            except Queue.Empty:
+            except queue.Empty:
                 break
             to_dispatch.append((mthd, args, kwds, optimize))
 

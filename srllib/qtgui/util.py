@@ -1,4 +1,4 @@
-from _common import *
+from ._common import *
 import srllib.qtgui
 
 class BrowseFileButton(QToolButton):

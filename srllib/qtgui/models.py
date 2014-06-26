@@ -38,7 +38,7 @@ class _SetDataCommand(QtGui.QUndoCommand):
         if self.__clear:
             # This clears all roles
             self.__model.setItemData(idx, {})
-        for role, value in self.__role2value.items():
+        for role, value in list(self.__role2value.items()):
             self.__model.setData(idx, value, role)
 
     def undo(self):
@@ -121,7 +121,7 @@ class UndoItemModel(QtGui.QSortFilterProxyModel):
             item = QtGui.QStandardItem()
             if not isinstance(val, dict):
                 val = {Qt.EditRole: val}
-            for role, data in val.items():
+            for role, data in list(val.items()):
                 item.setData(QtCore.QVariant(data), role)
             items.append(item)
         self.undo_stack.push(_AppendRowCommand(self.__model, items,
@@ -172,7 +172,7 @@ class UndoItemModel(QtGui.QSortFilterProxyModel):
             undo_text = "remove rows"
         self.undo_stack.beginMacro(undo_text)
         try:
-            for i in reversed(range(row, row+count)):
+            for i in reversed(list(range(row, row+count))):
                 self.removeRow(i, parent)
         finally:
             self.undo_stack.endMacro()

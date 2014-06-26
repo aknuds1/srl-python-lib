@@ -61,7 +61,7 @@ class QtTestCase(TestCase):
 
     def assertConnected(self, slot, emitter, signal):
         """ Assert that a slot is connected to a signal. """
-        self.assert_(emitter.mock_is_connected(slot, signal), msg=
+        self.assertTrue(emitter.mock_is_connected(slot, signal), msg=
             "Slot %r not connected to signal %s of %r" % (slot, signal,
                 emitter))
 

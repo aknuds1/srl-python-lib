@@ -2,7 +2,7 @@
 
 The functionality here improves upon that in the standard L{threading} module.
 """
-from __future__ import absolute_import
+
 import threading, os.path, traceback
 
 from srllib import util
@@ -28,7 +28,7 @@ class TimeoutError(Exception):
     pass
 
 def _def_handler(thread_exc):
-    print thread_exc
+    print(thread_exc)
 _prev_handler = _exc_handler = _def_handler
 
 def register_exceptionhandler(handler):

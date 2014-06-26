@@ -9,8 +9,10 @@ from srllib.qtgui import widgets
 
 from srllib.testing.qtgui.mock import Mock, QMock, QWidgetMock, QDialogMock
 
+
 class QDockWidgetMock(QWidgetMock):
     _MockRealClass = QDockWidget
+
 
 class QMenuMock(Mock):
     _MockRealClass = QMenu
@@ -46,6 +48,7 @@ class QMenuMock(Mock):
         self.__cur_sect = []
         self.mock_entries.append(self.__cur_sect)
 
+
 class QActionMock(QMock):
     _MockRealClass = QAction
 
@@ -76,6 +79,7 @@ class QActionMock(QMock):
     def trigger(self):
         self.emit(SIGNAL("triggered()"))
 
+
 class QActionGroupMock(QMock):
     _MockRealClass = QActionGroup
 
@@ -93,6 +97,7 @@ class QActionGroupMock(QMock):
     def addAction(self, action):
         self.__actions.append(action)
 
+
 class QToolButtonMock(QMock):
     _MockRealClass = QToolButton
 
@@ -109,6 +114,7 @@ class QToolButtonMock(QMock):
     def isEnabled(self):
         return self.__enabled
 
+
 class QLabelMock(QWidgetMock):
     _MockRealClass = QLabel
 
@@ -122,12 +128,15 @@ class QLabelMock(QWidgetMock):
     def setText(self, text):
         self.__text = text
 
+
 class _ItemMockBase(Mock):
     def __init__(self, model):
         self.model = model
 
+
 class QPixmapMock(QMock):
     _MockRealClass = QPixmap
+
 
 class QComboBoxMock(QWidgetMock):
     _MockRealClass = QComboBox
@@ -145,6 +154,7 @@ class QComboBoxMock(QWidgetMock):
     def clear(self):
         self.mock_items = []
 
+
 class QStatusBarMock(QWidgetMock):
     _MockRealClass = QStatusBar
 
@@ -154,6 +164,7 @@ class QStatusBarMock(QWidgetMock):
 
     def addPermanentWidget(self, widget):
         self.mock_permanent_widgets.append(widget)
+
 
 class QLineEditMock(QMock):
     _MockRealClass = QLineEdit
@@ -171,14 +182,16 @@ class QLineEditMock(QMock):
     def setCursorPosition(self, pos):
         old_pos = self.cursorPosition()
         self.mockSetReturnValue("cursorPosition", pos)
-        self.emit(SIGNAL("cursorPositionChanged(int, int)"),
-            old_pos, pos)
+        self.emit(SIGNAL(
+            "cursorPositionChanged(int, int)"), old_pos, pos)
 
     def setReadOnly(self, readonly):
         self.mockSetReturnValue("isReadOnly", readonly)
 
+
 class QToolBoxMock(QWidgetMock):
     _MockRealClass = QToolBox
+
 
 class QTreeWidgetMock(QWidgetMock):
     _MockRealClass = QTreeWidget
@@ -192,6 +205,7 @@ class QTreeWidgetMock(QWidgetMock):
 
     def clear(self):
         self.mock_items = []
+
 
 class QTreeWidgetItemMock(QWidgetMock):
     _MockRealClass = QTreeWidgetItem
@@ -207,7 +221,7 @@ class QButtonGroupMock(QMock):
 
     def mock_set_checked(self, btn):
         self.__checked = btn
-        for b in self.__btns.values():
+        for b in list(self.__btns.values()):
             if b.isChecked() and b is not btn:
                 b.setChecked(False)
 
@@ -231,9 +245,10 @@ class QButtonGroupMock(QMock):
         return self.__checked
 
     def checkedId(self):
-        for i, b in self.__btns.items():
+        for i, b in list(self.__btns.items()):
             if b is self.__checked:
                 return i
+
 
 class QGroupBoxMock(QMock):
     _MockRealClass = QGroupBox
@@ -252,12 +267,15 @@ class QGroupBoxMock(QMock):
     def isChecked(self):
         return self.__checkable and self.__checked
 
+
 class _ButtonMockBase(QWidgetMock):
     def click(self):
         self.emit(SIGNAL("clicked()"))
 
+
 class QPushButtonMock(_ButtonMockBase):
     _MockRealClass = QPushButton
+
 
 class QRadioButtonMock(QMock):
     _MockRealClass = QRadioButton
@@ -275,12 +293,13 @@ class QRadioButtonMock(QMock):
     def isChecked(self):
         return self.__checked
 
+
 class QCheckBoxMock(QMock):
     _MockRealClass = QCheckBox
 
     def __init__(self, *args, **kwds):
-        kwds.setdefault("returnValues", {}).setdefault("checkState",
-            Qt.Unchecked)
+        kwds.setdefault("returnValues", {}).setdefault(
+            "checkState", Qt.Unchecked)
         QMock.__init__(self, *args, **kwds)
         self.__checked = False
 
@@ -295,6 +314,7 @@ class QCheckBoxMock(QMock):
     def isChecked(self):
         warnings.warn("Deprecated", DeprecationWarning)
         return self.__checked
+
 
 class QListWidgetMock(QWidgetMock):
     """ Mock QListWidget.
@@ -312,6 +332,7 @@ class QListWidgetMock(QWidgetMock):
 
     def count(self):
         return len(self.mock_items)
+
 
 class QTableWidgetMock(QWidgetMock):
     _MockRealClass = QTableWidget
@@ -355,29 +376,37 @@ class QTableWidgetMock(QWidgetMock):
             items.append({})
         items[row][col] = widget
 
+
 class QTableWidgetItemMock(QMock):
     _MockRealClass = QTableWidgetItem
+
 
 class QIconMock(QMock):
     _MockRealClass = QIcon
 
+
 class QFileMock(QMock):
     _MockRealClass = QFile
 
+
 class QTextStreamMock(QMock):
     _MockRealClass = QTextStream
+
 
 class QMessageBoxMock(QDialogMock):
     Yes, No, Cancel = range(3)
 
 
 class BrowseDirectoryMock(QWidgetMock):
-    def __init__(self, baseargs=(), basekwds={}):
+    def __init__(self, baseargs=(), basekwds=None):
+        if not basekwds:
+            basekwds = {}
         QWidgetMock.__init__(self, *baseargs, **basekwds)
         self.path_edit = QLineEditMock()
 
     def set_path(self, path):
         self.path_edit.setText(path)
+
 
 class NumericalLineEditMock(QLineEditMock):
     _MockRealClass = widgets.NumericalLineEdit

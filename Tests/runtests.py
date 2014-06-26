@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
-
-import sys, os.path
+import sys
+import os.path
 
 if __name__ == '__main__':
     dpath = os.path.dirname(__file__)

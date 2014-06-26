@@ -1,12 +1,13 @@
-""" Threading logic.
+"""Threading logic.
 
 The functionality here improves upon that in the standard L{threading} module.
 """
-
-import threading, os.path, traceback
+import threading
+import traceback
 
 from srllib import util
 from srllib.error import *
+
 
 class ThreadError(SrlError):
     """ Encapsulation of an exception caught in a thread.
@@ -21,15 +22,15 @@ class ThreadError(SrlError):
         self.name = name
         self.exc_type, self.exc_value, self.exc_traceback = exc_info
 
+
 class Cancellation(Exception):
     pass
 
-class TimeoutError(Exception):
-    pass
 
 def _def_handler(thread_exc):
     print(thread_exc)
 _prev_handler = _exc_handler = _def_handler
+
 
 def register_exceptionhandler(handler):
     """ Register a handler for exceptions happening in background thread.
@@ -40,10 +41,12 @@ def register_exceptionhandler(handler):
         _prev_handler = handler
     _exc_handler = handler
 
+
 def restore_exceptionhandler():
     """ Restore global exception handler to previous one. """
     global _exc_handler, _prev_handler
     _exc_handler = _prev_handler
+
 
 def synchronized(func):
     """ Decorator for making functions thread-safe. """
@@ -56,7 +59,9 @@ def synchronized(func):
     func._sync_lock = threading.Lock()
     return syncfunc
 
+
 _thread_specific = {}
+
 
 class Lock(object):
     def __init__(self, *args, **kwds):
@@ -96,10 +101,11 @@ class Lock(object):
         self.__inError = exception
         self.release()
 
-class Condition(threading._Condition):
+
+class Condition(threading.Condition):
     """ Reimplement threading.Condition in order to provide own Lock implementation as default. This is
     because our own Lock supports forceful release. """
-    __super = threading._Condition
+    __super = threading.Condition
 
     def __init__(self, lock=None):
         if lock is None:
@@ -117,6 +123,7 @@ class Condition(threading._Condition):
         self.acquire()
         self.notify()
         self.release()
+
 
 class Event(object):
     def __init__(self):
@@ -149,6 +156,7 @@ class Event(object):
         finally:
             self.__cond.release()
 
+
 class SynchronousCondition(object):
     """ Synchronize two threads, by having one signal a condition and wait until the other receives
     it. """
@@ -180,9 +188,11 @@ class SynchronousCondition(object):
         self.__notified.set()
         self.__waited.set()
 
+
 def test_cancel():
     thrd = Thread.current_thread()
     thrd.test_cancel()
+
 
 class Thread(object):
     _thread_local = threading.local()
@@ -196,8 +206,8 @@ class Thread(object):
         def test_cancel(self):
             pass
     
-    def __init__(self, target=None, args=[], kwds={}, name=None, daemon=False, start=False,
-                slot_finished=util.no_op):
+    def __init__(self, target=None, args=None, kwds=None, name=None, daemon=False, start=False,
+                 slot_finished=util.no_op):
         """ @param target: function to execute in background thread
         @param args: arguments to target
         @param kwds: keywords to target
@@ -206,6 +216,8 @@ class Thread(object):
         @param start: start at once?
         @param slot_finished: a function to invoke once the thread finishes
         """
+        if not args: args = []
+        if not kwds: kwds = {}
         self._thrd = threading.Thread(target=self._run, name=name)
         self._trgt, self._args, self._kwds = target, args, kwds
         self._slot_finished = slot_finished
@@ -258,9 +270,9 @@ class Thread(object):
 
     @synchronized
     def cancel(self, wait=False, timeout=None):
-        """ Tell this thread to cancel itself. Will wait till the request is honoured.
+        """Tell this thread to cancel itself. Will wait till the request is honoured.
         It is also possible that the thread finishes its execution independently of this request,
-        this function will return anyway when it notices that the thread is no longer running. """
+        this function will return anyway when it notices that the thread is no longer running."""
         assert Thread.current_thread() is not self
         self.__eventCancel.set()
         if wait:

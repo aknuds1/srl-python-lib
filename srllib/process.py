@@ -16,7 +16,7 @@ from srllib.signal import Signal
 
 
 class ChildError(SrlError):
-    """ Exception detected in child process.
+    """Exception detected in child process.
 
     If the original exception derives from L{PickleableException}, it is
     preserved, along with the traceback.
@@ -101,7 +101,7 @@ class ChildDied(SrlError):
 
 
 def terminate(process):
-    """ Terminate a process of either the L{Process} type or the standard
+    """Terminate a process of either the L{Process} type or the standard
     subprocess.Popen type.
 
     This method will block until it is determined that the process has in fact
@@ -137,7 +137,7 @@ def terminate(process):
 
 
 class Process(object):
-    """ Invoke a callable in a child process.
+    """Invoke a callable in a child process.
 
     Instantiating an object of this class will spawn a child process, I{in which
     a provided callable is invoked}. Pipes are provided for the standard streams
@@ -231,7 +231,7 @@ except Exception, err:
         return self.__prcs.stderr
 
     def close(self):
-        """ Release resources.
+        """Release resources.
 
         If the process is still alive, it is waited for.
         """
@@ -241,7 +241,7 @@ except Exception, err:
         os.remove(self.__script_fname)
 
     def poll(self):
-        """ Check if child has exited.
+        """Check if child has exited.
         @return: If child has exited, its exit code, else C{None}.
         """
         rslt = self.__exit_rslt
@@ -264,7 +264,7 @@ except Exception, err:
         return r
 
     def wait(self):
-        """ Wait for child to finish.
+        """Wait for child to finish.
         @return: Child's exit code.
         @raise ChildError: Exception detected in child.
         """
@@ -272,14 +272,14 @@ except Exception, err:
         return self.poll()
 
     def terminate(self):
-        """ Kill child process.
+        """Kill child process.
 
         Implemented using L{terminate}.
         """
         return terminate(self)
 
     def write_message(self, message, wait=True):
-        """ Write message to other process.
+        """Write message to other process.
 
         If this is the child process, message will be available for parent
         process and vice versa. This method may wait for the other process to
@@ -298,7 +298,7 @@ except Exception, err:
             raise EofError
 
     def read_message(self):
-        """ Read message from other process.
+        """Read message from other process.
 
         If this is the child process, message will be read from parent process
         and vice versa. This method will wait until a message is actually
@@ -369,7 +369,7 @@ class EofError(IOError):
 
 
 class ThreadedProcessMonitor(object):
-    """ Monitor a child process in a background thread.
+    """Monitor a child process in a background thread.
     @group Signals: sig*
     @ivar process: The L{child process<Process>}
     @ivar sig_stdout: Triggered to deliver stdout output from the child process.
@@ -382,7 +382,7 @@ class ThreadedProcessMonitor(object):
     """
     def __init__(self, daemon=False, use_pty=False, pass_process=True):
         """
-        @param daemon: Start background threads in daemon mode
+        @param daemon: Start background threads in daemon mode.
         @param use_pty: Open pseudo-terminal for child process.
         @param pass_process: When executing functions in child processes,
         should the L{Process} object be passed as a parameter?
@@ -391,18 +391,18 @@ class ThreadedProcessMonitor(object):
             Signal(), Signal(), Signal(), Signal())
         self.__process = None
         i, o = os.pipe()
-        self._event_pipe_in, self._event_pipe_out = (
-            os.fdopen(i, "r", 0), os.fdopen(o, "w", 0))
+        self._event_pipe_in = os.fdopen(i, "rb", 0)
+        self._event_pipe_out = os.fdopen(o, "wb", 0)
         self._daemon = daemon
         self._thrd = None
 
     @property
     def process(self):
-        """ The monitored process. """
+        """The monitored process."""
         return self.__process
 
     def __call__(self, child_func, child_args=None, child_kwds=None):
-        """ Execute function in child process, monitored in background thread.
+        """Execute function in child process, monitored in background thread.
         @param child_func: Function to execute
         @param child_args: Arguments for child function
         @param child_kwds: Keywords for child function
@@ -422,7 +422,7 @@ class ThreadedProcessMonitor(object):
         thrd.start()
 
     def monitor_command(self, arguments, cwd=None, env=None):
-        """ Monitor a command.
+        """Monitor a command.
 
         @return: The associated L{process<subprocess.Popen>}.
         """
@@ -438,7 +438,7 @@ class ThreadedProcessMonitor(object):
         return prcs
 
     def wait(self):
-        """ Wait for monitoring thread to finish.
+        """Wait for monitoring thread to finish.
         @return: The child process exit code. If the child raised a
         L{ChildError}, this will be None.
         """
